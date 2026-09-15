@@ -1,0 +1,3 @@
+﻿import {chromium} from 'playwright'
+const b=await chromium.launch({headless:true,channel:'chrome'});
+try {for(const [name,url] of [['dubaisouth','https://www.dubaisouth.ae/en/our-leadership'],['haus','https://www.hausandhausholidays.com/']]){const p=await b.newPage({viewport:{width:1440,height:1000}});await p.goto(url,{waitUntil:'domcontentloaded',timeout:60000});await p.locator('h1').first().waitFor({timeout:15000}).catch(()=>{});await p.screenshot({path:'qa/ref-'+name+'.png'});console.log(name,await p.locator('body').innerText().then(t=>t.slice(0,1500)));await p.screenshot({path:'qa/ref-'+name+'-full.png',fullPage:true});await p.close()}}finally{await b.close()}

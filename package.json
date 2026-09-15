@@ -1,0 +1,26 @@
+{
+  "name": "bayt-and-brick-rentals",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.mjs",
+    "dev:client": "vite",
+    "start": "node server.mjs",
+    "test": "node --test qa/server.test.mjs",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "typescript": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1",
+    "sharp": "^0.35.4"
+  }
+}

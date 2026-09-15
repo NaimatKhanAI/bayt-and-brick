@@ -1,0 +1,3 @@
+﻿import {chromium} from 'playwright'
+const browser=await chromium.launch({headless:true,channel:'chrome'});
+try {const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});for(const route of ['/about','/properties','/contact']){await page.goto('http://localhost:3001'+route);await page.locator('h1').waitFor();await page.locator('img').evaluateAll(async imgs=>{for(const i of imgs)i.loading='eager';await Promise.all(imgs.map(i=>i.decode().catch(()=>{})))});await page.screenshot({path:'qa/new'+route.replaceAll('/','-')+'.png',fullPage:true})}}finally{await browser.close()}
