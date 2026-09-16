@@ -2,6 +2,7 @@ import http from 'node:http'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import { initialAreas } from './src/areas.js'
 import { allListings } from './src/data.js'
 
 const root = process.cwd(), local = path.join(root, '.local'), uploads = path.join(root, 'uploads')
@@ -9,6 +10,11 @@ await fs.mkdir(local, { recursive: true }); await fs.mkdir(uploads, { recursive:
 const dbPath = path.join(local, 'database.json'), authPath = path.join(local, 'admin.json')
 let db
 try { db = JSON.parse(await fs.readFile(dbPath, 'utf8')) } catch { db = { properties: allListings.map(p => ({ ...p, yearlyPrice: p.price * 12, description: 'A thoughtfully arranged home with comfortable living spaces and room for everyday life.', demo: true })), enquiries: [] }; await fs.writeFile(dbPath, JSON.stringify(db)) }
+if (!Array.isArray(db.areas)) {
+  db.areas = initialAreas.map((a, i) => ({ ...a, id: 'area-' + i }))
+  for (const p of db.properties) if (!db.areas.some(a => a.name === p.area)) db.areas.push({ id: randomBytes(8).toString('hex'), name: p.area, emirate: p.location.split(',').pop().trim(), image: p.image, note: '' })
+  await fs.writeFile(dbPath, JSON.stringify(db))
+}
 let admin
 try { admin = JSON.parse(await fs.readFile(authPath, 'utf8')) } catch {
   const password = process.env.ADMIN_PASSWORD || randomBytes(18).toString('base64url'), salt = randomBytes(16).toString('hex')
@@ -32,6 +38,7 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost'), p = url.pathname, method = req.method
     if (p.startsWith('/api/') && !['GET', 'HEAD'].includes(method) && req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) return json(res, 403, { error: 'Request origin is not allowed.' })
     const token = (req.headers.cookie || '').match(/(?:^|;\s*)bb_session=([^;]+)/)?.[1], session = sessions.get(token), authorized = session && session > Date.now()
+    if (p === '/api/areas' && method === 'GET') return json(res, 200, db.areas)
     if (p === '/api/properties' && method === 'GET') return json(res, 200, db.properties)
     if (p === '/api/session' && method === 'GET') return json(res, 200, { authenticated: Boolean(authorized) })
     if (p === '/api/login' && method === 'POST') {
@@ -48,6 +55,19 @@ const server = http.createServer(async (req, res) => {
     }
     if (p.startsWith('/api/')) {
       if (!authorized) return json(res, 401, { error: 'Please sign in as an administrator.' })
+      if (p === '/api/areas' && method === 'POST') {
+        const d = await parse(req), name = clean(d.name, 100), emirate = clean(d.emirate, 100)
+        if (!name || !['Dubai','Sharjah','Abu Dhabi','Ajman','Ras Al Khaimah','Fujairah','Umm Al Quwain'].includes(emirate)) return json(res, 400, { error: 'Enter an area name and select an emirate.' })
+        if (db.areas.some(a => a.name.toLowerCase() === name.toLowerCase())) return json(res, 409, { error: 'This area already exists.' })
+        const area = { id: randomBytes(8).toString('hex'), name, emirate, note: clean(d.note, 500), image: '/assets/muwaileh-neighbourhood.webp' }
+        db.areas.push(area); await save(); return json(res, 201, area)
+      }
+      if (p.startsWith('/api/areas/') && method === 'DELETE') {
+        const area = db.areas.find(a => a.id === p.split('/').pop())
+        if (!area) return json(res, 404, { error: 'Area not found.' })
+        if (db.properties.some(p => p.area === area.name)) return json(res, 409, { error: 'Move or remove the properties in this area before deleting it.' })
+        db.areas = db.areas.filter(a => a.id !== area.id); await save(); return json(res, 200, { ok: true })
+      }
       if (p === '/api/enquiries' && method === 'GET') return json(res, 200, db.enquiries)
       if (p === '/api/upload' && method === 'POST') {
         const b = await body(req, 50 * 1024 * 1024); let ext
@@ -64,6 +84,7 @@ const server = http.createServer(async (req, res) => {
         if (!clean(d.name) || !['studio','1-bhk','2-bhk'].includes(d.slug) || !clean(d.area) || !(Number(d.price) > 0) || !(Number(d.yearlyPrice) > 0) || !Array.isArray(d.images) || !d.images.length || !d.images.every(mediaOK) || (d.video && !mediaOK(d.video))) return json(res, 400, { error: 'Add a title, home type, area, both rental prices and at least one photo.' })
         if (!Number.isFinite(Number(d.price)) || !Number.isFinite(Number(d.yearlyPrice)) || !clean(d.location) || !d.images.every(v => /\.(jpg|jpeg|png|webp)$/i.test(v)) || (d.video && !/\.(mp4|webm)$/i.test(d.video))) return json(res, 400, { error: 'Use valid prices, a location, image photos and a supported video file.' })
         for (const media of [...d.images, d.video].filter(v => v && v.startsWith('/uploads/'))) { try { await fs.access(path.join(uploads, path.basename(media))) } catch { return json(res, 400, { error: 'One of your uploaded files is missing. Please upload it again.' }) } }
+        if (!db.areas.some(a => a.name === clean(d.area))) return json(res, 400, { error: 'Select an existing area or add it in the Areas tab first.' })
         const id = db.properties.find(x => x.id === d.id)?.id || randomBytes(8).toString('hex')
         const item = { id, name: clean(d.name), slug: d.slug, category: { studio:'Studio', '1-bhk':'1 BHK', '2-bhk':'2 BHK' }[d.slug], area: clean(d.area), location: clean(d.location), price: Number(d.price), yearlyPrice: Number(d.yearlyPrice), size: clean(d.size), furnished: Boolean(d.furnished), description: clean(d.description, 5000), images: d.images.slice(0, 30), image: d.images[0], video: d.video || '', available: 'Enquire for availability', reference: 'BB-' + id.slice(-6).toUpperCase(), demo: false }
         db.properties = [item, ...db.properties.filter(x => x.id !== id)]; await save(); return json(res, 200, item)

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ArrowUpRight, ArrowRight, ArrowLeft, MapPin, BedDouble, Search, Check, ShieldCheck } from 'lucide-react'
 import { categories } from './data'
-import { areas, Link, ButtonLink, Period, SectionTitle, Card, Steps, CTA } from './shared'
+import { Link, ButtonLink, Period, SectionTitle, Card, Steps, CTA } from './shared'
 
 const slides = [
   { image: '/assets/hero-apartment.webp', title: 'A fresh perspective on home.', caption: 'Thoughtful spaces. Everyday comfort.' },
@@ -9,7 +9,7 @@ const slides = [
   { image: '/assets/one-bhk.webp', title: 'Your next chapter starts here.', caption: 'Make yourself at home in the UAE.' },
 ]
 
-function HomeSearch({ go, properties }) {
+function HomeSearch({ go, properties, areas }) {
   const [area, setArea] = useState(''), [type, setType] = useState(''), [period, setPeriod] = useState('monthly')
   const availableAreas = [...new Set([...areas.map(a => a.name), ...properties.map(p => p.area)])]
   return <section className="destination-search" aria-label="Find a rental home">
@@ -22,7 +22,7 @@ function HomeSearch({ go, properties }) {
   </section>
 }
 
-export default function Landing({ go, properties, saved, toggleSave }) {
+export default function Landing({ go, properties, areas, saved, toggleSave }) {
   const [slide, setSlide] = useState(0)
   return <main className="landing-page">
     <section className="destination-hero" aria-label="Welcome to Bayt and Brick">
@@ -31,7 +31,7 @@ export default function Landing({ go, properties, saved, toggleSave }) {
       <div className="destination-copy"><span className="eyebrow">UAE HOMES. EXCEPTIONAL EVERYDAY LIVING.</span><h1>Find your place.<br />Live your way.</h1><p>From a first studio to a family apartment. Discover a home you love, in a neighbourhood that feels like you.</p><div className="destination-actions"><ButtonLink to="/properties" go={go}>Explore our properties</ButtonLink><Link to="/about" go={go} className="hero-story-link">Get to know us <ArrowUpRight size={18} /></Link></div></div>
       <div className="destination-bottom"><span className="slide-caption" aria-live="polite"><i />{slides[slide].title}</span><div className="slider-controls"><span>{String(slide + 1).padStart(2, '0')} <small>/ 03</small></span><button aria-label="Previous featured image" onClick={() => setSlide((slide + 2) % 3)}><ArrowLeft size={19} /></button><button aria-label="Next featured image" onClick={() => setSlide((slide + 1) % 3)}><ArrowRight size={19} /></button></div></div>
     </section>
-    <HomeSearch go={go} properties={properties} />
+    <HomeSearch go={go} properties={properties} areas={areas} />
     <section className="welcome-section"><span className="eyebrow">WELCOME TO BAYT & BRICK</span><h2>Great homes.<br className="mobile-break" /> Even better beginnings.</h2><p>A home is more than an address. It's where your everyday life happens. We bring together studios, one-bedroom and two-bedroom apartments across the UAE, with <strong>monthly and yearly rental options</strong> to suit your next chapter.</p><div className="welcome-promises"><span><Check /> Flexible rental periods</span><span><Check /> Clear property details</span><span><Check /> Personal viewing support</span></div><Link className="text-link" to="/about" go={go}>Discover our story <ArrowUpRight size={17} /></Link></section>
     <section className="section featured-section"><SectionTitle eyebrow="FIND SOMEWHERE TO CALL YOUR OWN" title="Browse our properties" copy="A selection of spaces to help you picture your next move." to="/properties" go={go} link="View all properties" /><div className="property-grid">{properties.slice(0, 6).map(p => <Card key={p.id} p={p} go={go} saved={saved.includes(p.id)} toggleSave={toggleSave} />)}</div>{!properties.length && <div className="empty"><h3>New homes are on their way.</h3><p>Speak to our team about your preferred area and budget.</p><ButtonLink to="/contact" go={go}>Get in touch</ButtonLink></div>}</section>
     <section className="section category-section"><SectionTitle eyebrow="YOUR SPACE. YOUR LIFESTYLE." title="Make room for what matters." copy="Just enough space, a little more privacy, or room for everyone." /><div className="category-grid">{categories.map((c, i) => <Link key={c.slug} to={'/properties/' + c.slug} go={go} className="category-card"><img src={c.image} alt={c.label + ' apartment interior'} loading="lazy" /><div className="category-shade" /><span className="category-number">0{i + 1}</span><div className="category-copy"><div><span>{['A SPACE OF YOUR OWN', 'MORE ROOM TO UNWIND', 'BRING EVERYONE HOME'][i]}</span><h3>{c.label === 'Studio' ? 'Studio apartments' : c.label + ' apartments'}</h3></div><span className="category-arrow"><ArrowUpRight /></span></div></Link>)}</div></section>

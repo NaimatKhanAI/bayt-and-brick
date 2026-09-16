@@ -19,9 +19,15 @@ Open `/admin`. Your configured username and password are in `.local/admin-access
 
 The dashboard supports creating, editing and deleting properties; separate monthly/yearly prices; custom UAE areas; JPG/PNG/WebP photos and MP4/WebM video uploads (50 MB each); removing media; and reading viewing enquiries. The first photo is the cover. Save a property to publish media changes. Unsaved uploads are not published; uploaded files can remain on disk after cancelling an edit. Viewing enquiries are stored in the dashboard; email/SMS delivery is not configured.
 
+## Property search and neighbourhoods
+
+The property catalogue includes location, apartment type, monthly/yearly price ranges, furnishing, size ranges, keywords, video tours, saved homes, sorting and list/grid views. Search writes the selected filters to a shareable URL. Property details include a structured information table and viewing enquiry form. The landing page retains its existing layout.
+
+Admins can add and delete neighbourhoods in the **Areas** tab. Areas persist in `.local/database.json` and feed the home search, catalogue, neighbourhood page and property editor. Existing installations migrate their initial areas on server startup. An area with properties cannot be deleted until those properties are moved or removed. Restart the backend after updating server code.
+
 ## Storage and deployment
 
-`.local/database.json` holds property and enquiry data; `uploads/` holds uploaded media. Both must be persistent and backed up together. Admin credentials live in `.local/admin.json`. None of these private runtime files are served by the app. This setup supports one Node server process; use a database and object storage before scaling to multiple instances.
+`.local/database.json` holds property, area and enquiry data; `uploads/` holds uploaded media. Both must be persistent and backed up together. Admin credentials live in `.local/admin.json`. None of these private runtime files are served by the app. This setup supports one Node server process; use a database and object storage before scaling to multiple instances.
 
 For hosting, build assets, run the Node server behind an HTTPS reverse proxy, set `NODE_ENV=production` to enable Secure cookies, and configure `HOST`/`PORT` as needed. The proxy must preserve the original Host header for origin checks. Limit request bodies to 50 MB and retain persistent storage. Static-only hosting is insufficient for the admin backend.
 

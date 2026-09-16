@@ -6,22 +6,35 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import net from 'node:net'
+import { createServer } from 'vite'
+import viteConfig from '../vite.config.js'
 const serverFile = fileURLToPath(new URL('../server.mjs', import.meta.url))
 test('Rental API protects administration and persists property, media and enquiry changes', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rental-test-'))
   const probe = net.createServer(); await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve)); const port = probe.address().port; await new Promise(resolve=>probe.close(resolve))
   const origin = 'http://127.0.0.1:'+port
-  let child, cookie = ''
+  let child, proxy, cookie = ''
   async function start(){child=spawn(process.execPath,[serverFile],{cwd:tmp,env:{...process.env,PORT:String(port),ADMIN_PASSWORD:'OnlyForAutomatedTesting!42',NODE_ENV:'test'},stdio:['ignore','pipe','pipe']});await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(new Error('Server did not start')),10000);child.stdout.once('data',()=>{clearTimeout(timeout);resolve()});child.once('error',reject)})}
   async function stop(){if(child?.exitCode===null){const done=new Promise(resolve=>child.once('exit',resolve));child.kill();await done}}
   async function call(url,method='GET',body,authenticated=false){const r=await fetch(origin+'/api'+url,{method,headers:{'Content-Type':'application/json',...(authenticated?{Cookie:cookie}:{}),Origin:origin},body:body===undefined?undefined:JSON.stringify(body)});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')}}
   try{
     await start()
-    let r=await call('/properties');assert.equal(r.status,200);assert.equal(r.data.length,9);assert(r.data.every(p=>p.demo && p.yearlyPrice>0))
+    proxy = await createServer({ configFile: false, server: { host: '127.0.0.1', port: 0, proxy: { '/api': { ...viteConfig.server.proxy['/api'], target: origin } } } })
+    await proxy.listen()
+    const frontend = 'http://127.0.0.1:' + proxy.httpServer.address().port
+    const proxiedLogin = requestOrigin => fetch(frontend + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: requestOrigin }, body: JSON.stringify({ username: 'admin', password: 'OnlyForAutomatedTesting!42' }) })
+    assert.equal((await proxiedLogin(frontend)).status, 200, 'same-origin login works through the frontend proxy')
+    assert.equal((await proxiedLogin('https://other.example')).status, 403, 'proxy still rejects cross-origin login')
+    let r=await call('/areas');assert.equal(r.status,200);assert.equal(r.data.length,6);assert.equal((await call('/areas','POST',{name:'Test'})).status,401);r=await call('/properties');assert.equal(r.status,200);assert.equal(r.data.length,9);assert(r.data.every(p=>p.demo && p.yearlyPrice>0))
     for(const [url,method] of [['/properties','POST'],['/upload','POST'],['/enquiries','GET'],['/properties/studio-1','DELETE'],['/media','DELETE']])assert.equal((await call(url,method,method==='GET'?undefined:{})).status,401)
     assert.equal((await call('/login','POST',{username:'admin',password:'wrong'})).status,401)
     r=await call('/login','POST',{username:'admin',password:'OnlyForAutomatedTesting!42'});assert.equal(r.status,200);assert.match(r.cookie,/HttpOnly/);assert.match(r.cookie,/SameSite=Strict/);cookie=r.cookie.split(';')[0]
     assert.equal((await call('/session','GET',undefined,true)).data.authenticated,true)
+    r=await call('/areas','POST',{name:'QA District',emirate:'Dubai',note:'Test neighbourhood'},true);assert.equal(r.status,201);const areaId=r.data.id
+    assert.equal((await call('/areas','POST',{name:'qa district',emirate:'Dubai'},true)).status,409)
+    assert.equal((await call('/areas','POST',{name:'Bad',emirate:'Unknown'},true)).status,400)
+    assert.equal((await call('/areas/area-0','DELETE',undefined,true)).status,409)
+
     const cross=await fetch(origin+'/api/properties',{method:'POST',headers:{Cookie:cookie,Origin:'https://other.example','Content-Type':'application/json'},body:'{}'});assert.equal(cross.status,403)
     const badUpload=await fetch(origin+'/api/upload',{method:'POST',headers:{Cookie:cookie,Origin:origin},body:'<script>alert(1)</script>'});assert.equal(badUpload.status,400)
     const photo=await fs.readFile(new URL('../public/assets/studio.webp',import.meta.url));const uploaded=await fetch(origin+'/api/upload',{method:'POST',headers:{Cookie:cookie,Origin:origin},body:photo});assert.equal(uploaded.status,201);const media=await uploaded.json();assert.equal(media.video,false)
@@ -38,12 +51,13 @@ test('Rental API protects administration and persists property, media and enquir
     r=await call('/properties','POST',{...item,id,yearlyPrice:45000},true);assert.equal(r.data.yearlyPrice,45000)
     await stop();await start();r=await call('/properties');assert.equal(r.data.find(x=>x.id===id).yearlyPrice,45000);assert.equal((await call('/session','GET',undefined,true)).data.authenticated,false)
     r=await call('/login','POST',{username:'admin',password:'OnlyForAutomatedTesting!42'});cookie=r.cookie.split(';')[0]
+    assert((await call('/areas')).data.some(a=>a.id===areaId));assert.equal((await call('/areas/'+areaId,'DELETE',undefined,true)).status,200);assert(!(await call('/areas')).data.some(a=>a.id===areaId))
     assert.equal((await call('/properties/'+id,'DELETE',undefined,true)).status,200)
     assert.equal((await call('/media','DELETE',{url:media.url},true)).status,200)
     assert.equal((await call('/media','DELETE',{url:video.url},true)).status,200)
     assert.equal((await fetch(origin+media.url)).status,404)
     assert.equal((await call('/logout','POST',undefined,true)).status,200)
     assert.equal((await call('/enquiries','GET',undefined,true)).status,401)
-  }finally{await stop();assert(tmp.startsWith(path.join(os.tmpdir(),'bb-rental-test-')));await fs.rm(tmp,{recursive:true,force:true})}
+  }finally{await proxy?.close();await stop();assert(tmp.startsWith(path.join(os.tmpdir(),'bb-rental-test-')));await fs.rm(tmp,{recursive:true,force:true})}
 })
 
