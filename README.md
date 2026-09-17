@@ -37,3 +37,7 @@ Initial properties are clearly labelled sample listings with illustrative images
 
 `npm run build` checks the production bundle. `npm test` runs isolated API integration checks (authentication, uploads, enquiries, property CRUD and persistence) using a temporary runtime directory.
 
+
+## Property assistance
+
+Homepage search includes maximum budget and furnishing. The floating assistant matches loaded listings by type, area, monthly/yearly budget and furnishing, opens filtered results, and links to the viewing enquiry flow. It uses local search rules without an external AI service or API key. Messages remain in memory during the page session.

@@ -10,13 +10,15 @@ const slides = [
 ]
 
 function HomeSearch({ go, properties, areas }) {
-  const [area, setArea] = useState(''), [type, setType] = useState(''), [period, setPeriod] = useState('monthly')
+  const [area, setArea] = useState(''), [type, setType] = useState(''), [period, setPeriod] = useState('monthly'), [max, setMax] = useState(''), [furnished, setFurnished] = useState('')
   const availableAreas = [...new Set([...areas.map(a => a.name), ...properties.map(p => p.area)])]
   return <section className="destination-search" aria-label="Find a rental home">
     <div className="destination-search-top"><span>Find a home that fits your life</span><Period value={period} onChange={setPeriod} /></div>
-    <form onSubmit={e => { e.preventDefault(); go(`/properties?area=${encodeURIComponent(area)}&type=${type}&period=${period}`) }}>
+    <form onSubmit={e => { e.preventDefault(); go(`/properties?area=${encodeURIComponent(area)}&type=${type}&period=${period}&max=${max}&furnished=${furnished}`) }}>
       <label><MapPin size={21} /><span><small>WHERE WOULD YOU LIKE TO LIVE?</small><select aria-label="Choose area" value={area} onChange={e => setArea(e.target.value)}><option value="">Explore all UAE areas</option>{availableAreas.map(a => <option key={a}>{a}</option>)}</select></span></label>
       <label><BedDouble size={21} /><span><small>YOUR KIND OF SPACE</small><select aria-label="Choose property type" value={type} onChange={e => setType(e.target.value)}><option value="">All property types</option>{categories.map(c => <option key={c.slug} value={c.slug}>{c.label}</option>)}</select></span></label>
+      <label><span><small>MAX BUDGET (AED / {period === 'yearly' ? 'YEAR' : 'MONTH'})</small><input aria-label="Maximum rental budget" type="number" min="0" step="1" placeholder="Any budget" value={max} onChange={e => setMax(e.target.value)} /></span></label>
+      <label><span><small>FURNISHING</small><select aria-label="Furnishing preference" value={furnished} onChange={e => setFurnished(e.target.value)}><option value="">Any furnishing</option><option value="true">Furnished</option><option value="false">Unfurnished</option></select></span></label>
       <button className="btn" type="submit"><Search size={18} /> Find my home <ArrowUpRight size={18} /></button>
     </form>
   </section>
