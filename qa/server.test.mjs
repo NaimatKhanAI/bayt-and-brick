@@ -14,7 +14,7 @@ test('Rental API protects administration and persists property, media and enquir
   const probe = net.createServer(); await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve)); const port = probe.address().port; await new Promise(resolve=>probe.close(resolve))
   const origin = 'http://127.0.0.1:'+port
   let child, proxy, cookie = ''
-  async function start(){child=spawn(process.execPath,[serverFile],{cwd:tmp,env:{...process.env,PORT:String(port),ADMIN_PASSWORD:'OnlyForAutomatedTesting!42',NODE_ENV:'test'},stdio:['ignore','pipe','pipe']});await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(new Error('Server did not start')),10000);child.stdout.once('data',()=>{clearTimeout(timeout);resolve()});child.once('error',reject)})}
+  async function start(overrides={}){child=spawn(process.execPath,[serverFile],{cwd:tmp,env:{...process.env,PORT:String(port),ADMIN_PASSWORD:'OnlyForAutomatedTesting!42',NODE_ENV:'test',...overrides},stdio:['ignore','pipe','pipe']});await new Promise((resolve,reject)=>{const timeout=setTimeout(()=>reject(new Error('Server did not start')),10000);child.stdout.once('data',()=>{clearTimeout(timeout);resolve()});child.once('error',reject)})}
   async function stop(){if(child?.exitCode===null){const done=new Promise(resolve=>child.once('exit',resolve));child.kill();await done}}
   async function call(url,method='GET',body,authenticated=false){const r=await fetch(origin+'/api'+url,{method,headers:{'Content-Type':'application/json',...(authenticated?{Cookie:cookie}:{}),Origin:origin},body:body===undefined?undefined:JSON.stringify(body)});return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')}}
   try{
@@ -58,6 +58,10 @@ test('Rental API protects administration and persists property, media and enquir
     assert.equal((await fetch(origin+media.url)).status,404)
     assert.equal((await call('/logout','POST',undefined,true)).status,200)
     assert.equal((await call('/enquiries','GET',undefined,true)).status,401)
+    await stop(); await start({ADMIN_USERNAME:'updated-admin',ADMIN_PASSWORD:'UpdatedTestingPassword!43'})
+    assert.equal((await call('/login','POST',{username:'admin',password:'OnlyForAutomatedTesting!42'})).status,401)
+    assert.equal((await call('/login','POST',{username:'updated-admin',password:'UpdatedTestingPassword!43'})).status,200)
+    assert.equal((await call('/properties')).data.length,9, 'credential reset preserves property data')
   }finally{await proxy?.close();await stop();assert(tmp.startsWith(path.join(os.tmpdir(),'bb-rental-test-')));await fs.rm(tmp,{recursive:true,force:true})}
 })
 

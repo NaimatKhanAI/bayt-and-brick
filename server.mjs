@@ -22,6 +22,13 @@ try { admin = JSON.parse(await fs.readFile(authPath, 'utf8')) } catch {
   await fs.writeFile(authPath, JSON.stringify(admin), { mode: 0o600 })
   if (!process.env.ADMIN_PASSWORD) await fs.writeFile(path.join(local, 'admin-access.txt'), `Admin URL: /admin\nUsername: ${admin.username}\nPassword: ${password}\nKeep this file private.\n`, { mode: 0o600 })
 }
+// Hosting-managed credentials also override an existing installation on restart.
+if (process.env.ADMIN_PASSWORD) {
+  const salt = randomBytes(16).toString('hex')
+  admin = { username: process.env.ADMIN_USERNAME || admin.username || 'admin', salt, hash: scryptSync(process.env.ADMIN_PASSWORD, salt, 64).toString('hex') }
+  await fs.writeFile(authPath, JSON.stringify(admin), { mode: 0o600 })
+  await fs.rm(path.join(local, 'admin-access.txt'), { force: true })
+}
 const sessions = new Map(), limits = new Map()
 let queue = Promise.resolve()
 const save = () => { const snapshot = JSON.stringify(db, null, 2); queue = queue.then(async () => { await fs.writeFile(dbPath + '.tmp', snapshot); await fs.rename(dbPath + '.tmp', dbPath) }); return queue }
