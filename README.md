@@ -41,3 +41,21 @@ Initial properties are clearly labelled sample listings with illustrative images
 ## Property assistance
 
 Homepage search includes maximum budget and furnishing. The floating assistant matches loaded listings by type, area, monthly/yearly budget and furnishing, opens filtered results, and links to the viewing enquiry flow. It uses local search rules without an external AI service or API key. Messages remain in memory during the page session.
+
+## Team administration, roles and activity
+
+The existing login remains the protected **Super admin** account. Open `/admin` to create team members in **Users**, assign built-in or custom **Roles**, reset their passwords, and deactivate accounts. New team passwords must be 8?200 characters. Deactivation, password changes, user edits and role changes revoke affected sessions. The original super admin cannot be disabled or reassigned through the team panel.
+
+Permissions are enforced by the API for creating, editing and deleting properties, managing areas, reading enquiries, managing users/roles and viewing activity. Users with user/role management permissions can grant administrative access; reserve these permissions for trusted administrators. Editors can create/edit all properties, not just their own. Inactive accounts are retained to preserve history. Roles with assigned users must be reassigned before deletion.
+
+**Activity** records the user, time and before/after values for property, user, role and area changes, plus media upload/deletion and successful logins. Deleted property details remain reviewable. Passwords and password hashes are excluded from API responses and audit entries. Events before this upgrade cannot be reconstructed. Logs have no delete endpoint; host filesystem administrators can still modify the underlying JSON store. Filters support user, action, text and UTC date range.
+
+## Move-in availability and larger homes
+
+Home types now include Studio and 1?8 BHK in admin, search and category routes. Only the original nine sample listings are seeded; larger homes appear when staff add them. Bathrooms are entered separately from bedrooms.
+
+Set **Available from** in the property editor. The homepage and catalogue **Move-in date** filter shows listings whose confirmed availability date is on or before the chosen date. Unknown dates are excluded only when a date filter is active. Dates are saved in shareable search URLs. This is an availability filter, not a check-in/check-out booking calendar or reservation system.
+
+Deploy the updated frontend and backend together and restart the Node.js app. Back up and persist `.local/database.json`, `.local/admin.json` and `uploads/` on the hosting server: team accounts, roles and activity now live alongside property data. No private `.local` files should be committed to Git. Existing database files migrate automatically; keep using one server process with this JSON storage implementation.
+
+`npm test` includes access-control, audit persistence and availability tests in addition to the existing API checks. `npm run build` builds the client. With Microsoft Edge installed, `node qa/access-ui.mjs` runs isolated browser checks after a build; it creates only temporary test accounts and data.

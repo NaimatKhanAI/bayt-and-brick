@@ -37,6 +37,8 @@ export const categories = [
   },
 ]
 
+categories.push(...[3,4,5,6,7,8].map(n => ({ slug: `${n}-bhk`, label: `${n} BHK`, plural: `${n} BHK homes`, shortCode: `${n}B`, image: '/assets/two-bhk.webp', description: `${n}-bedroom homes. Explore current listings for details.` })))
+
 const listingNames = {
   studio: ['Furnished studio near University City', 'Studio with separate kitchen', 'Quiet studio with open view'],
   '1-bhk': ['Bright 1 BHK with separate bedroom', 'Unfurnished 1 BHK near Al Zahia', 'Furnished 1 BHK with dining area'],
@@ -71,7 +73,7 @@ export const listingsFor = (category) => {
   }))
 }
 
-export const allListings = categories.flatMap(listingsFor)
+export const allListings = categories.slice(0,3).flatMap(listingsFor)
 
 export const getCategory = (slug) => categories.find((category) => category.slug === slug)
 export const getListing = (id) => allListings.find((listing) => listing.id === id)

@@ -2,7 +2,7 @@ export function answerQuestion(raw, properties, areas) {
   const text = raw.toLowerCase().trim()
   if (/viewing|visit|book|appointment|dekhna/.test(text)) return { text: 'Choose a home and use its viewing form, or contact our team. Your appointment is confirmed only after the team follows up.', contact: true }
   if (/deposit|fees|utilities|contract|documents/.test(text)) return { text: 'Deposits, utilities, fees and required documents depend on the home. Our team can confirm the exact terms before you arrange a viewing.', contact: true }
-  const type = /studio/.test(text) ? 'studio' : /(?:1|one)\s*(?:bhk|bed)/.test(text) ? '1-bhk' : /(?:2|two)\s*(?:bhk|bed)/.test(text) ? '2-bhk' : ''
+  const type = /studio/.test(text) ? 'studio' : /(?:1|one)\s*(?:bhk|bed)/.test(text) ? '1-bhk' : /(?:2|two)\s*(?:bhk|bed)/.test(text) ? '2-bhk' : /\b([3-8])\s*(?:bhk|bed)/.test(text) ? text.match(/\b([3-8])\s*(?:bhk|bed)/)[1] + '-bhk' : ''
   const amount = text.match(/(?:under|below|up to|max(?:imum)?|budget(?: is)?|aed)\s*(?:aed\s*)?([\d,]+(?:\.\d+)?)\s*(k)?/)
   const max = amount ? Number(amount[1].replaceAll(',', '')) * (amount[2] ? 1000 : 1) : null
   const period = /year|annual/.test(text) ? 'yearly' : 'monthly'
