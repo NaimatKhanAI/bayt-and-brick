@@ -1,47 +1,50 @@
 import { useState } from 'react'
-import { ArrowUpRight, ArrowRight, ArrowLeft, MapPin, BedDouble, Search, Check, ShieldCheck } from 'lucide-react'
+import { ArrowUpRight, ArrowRight, ArrowLeft } from 'lucide-react'
 import { categories } from './data'
-import { Link, ButtonLink, Period, SectionTitle, Card, Steps, CTA } from './shared'
+import { Link, Card } from './shared'
 
 const slides = [
-  { image: '/assets/hero-apartment.webp', title: 'A fresh perspective on home.', caption: 'Thoughtful spaces. Everyday comfort.' },
-  { image: '/assets/two-bhk.webp', title: 'A little more room for life.', caption: 'Space to settle in. Room to grow.' },
-  { image: '/assets/one-bhk.webp', title: 'Your next chapter starts here.', caption: 'Make yourself at home in the UAE.' },
+  { image: '/assets/hero-apartment.webp', caption: 'Living and dining space' },
+  { image: '/assets/two-bhk.webp', caption: 'Apartment interior' },
+  { image: '/assets/one-bhk.webp', caption: 'Separate living room' },
 ]
-
-function HomeSearch({ go, properties, areas }) {
-  const [area, setArea] = useState(''), [type, setType] = useState(''), [period, setPeriod] = useState('monthly'), [max, setMax] = useState(''), [furnished, setFurnished] = useState(''), [moveIn, setMoveIn] = useState('')
-  const availableAreas = [...new Set([...areas.map(a => a.name), ...properties.map(p => p.area)])]
-  return <section className="destination-search" aria-label="Find a rental home">
-    <div className="destination-search-top"><span>Find a home that fits your life</span><Period value={period} onChange={setPeriod} /></div>
-    <form onSubmit={e => { e.preventDefault(); go(`/properties?area=${encodeURIComponent(area)}&type=${type}&period=${period}&max=${max}&furnished=${furnished}&moveIn=${moveIn}`) }}>
-      <label><MapPin size={21} /><span><small>WHERE WOULD YOU LIKE TO LIVE?</small><select aria-label="Choose area" value={area} onChange={e => setArea(e.target.value)}><option value="">Explore all UAE areas</option>{availableAreas.map(a => <option key={a}>{a}</option>)}</select></span></label>
-      <label><BedDouble size={21} /><span><small>YOUR KIND OF SPACE</small><select aria-label="Choose property type" value={type} onChange={e => setType(e.target.value)}><option value="">All property types</option>{categories.map(c => <option key={c.slug} value={c.slug}>{c.label}</option>)}</select></span></label>
-      <label><span><small>MAX BUDGET (AED / {period === 'yearly' ? 'YEAR' : 'MONTH'})</small><input aria-label="Maximum rental budget" type="number" min="0" step="1" placeholder="Any budget" value={max} onChange={e => setMax(e.target.value)} /></span></label>
-      <label><span><small>FURNISHING</small><select aria-label="Furnishing preference" value={furnished} onChange={e => setFurnished(e.target.value)}><option value="">Any furnishing</option><option value="true">Furnished</option><option value="false">Unfurnished</option></select></span></label>
-      <label><span><small>MOVE-IN DATE</small><input aria-label="Move-in date" type="date" value={moveIn} onChange={e=>setMoveIn(e.target.value)}/></span></label>
-      <button className="btn" type="submit"><Search size={18} /> Find my home <ArrowUpRight size={18} /></button>
-    </form>
-  </section>
-}
 
 export default function Landing({ go, properties, areas, saved, toggleSave }) {
   const [slide, setSlide] = useState(0)
-  return <main className="landing-page">
-    <section className="destination-hero" aria-label="Welcome to Bayt and Brick">
-      <div className="destination-images">{slides.map((s, i) => <img key={s.image} className={i === slide ? 'visible' : ''} src={s.image} alt={i === slide ? s.caption : ''} aria-hidden={i !== slide} fetchPriority={i === 0 ? 'high' : 'auto'} />)}</div>
-      <div className="destination-overlay" />
-      <div className="destination-copy"><span className="eyebrow">UAE HOMES. EXCEPTIONAL EVERYDAY LIVING.</span><h1>Find your place.<br />Live your way.</h1><p>From a first studio to a family apartment. Discover a home you love, in a neighbourhood that feels like you.</p><div className="destination-actions"><ButtonLink to="/properties" go={go}>Explore our properties</ButtonLink><Link to="/about" go={go} className="hero-story-link">Get to know us <ArrowUpRight size={18} /></Link></div></div>
-      <div className="destination-bottom"><span className="slide-caption" aria-live="polite"><i />{slides[slide].title}</span><div className="slider-controls"><span>{String(slide + 1).padStart(2, '0')} <small>/ 03</small></span><button aria-label="Previous featured image" onClick={() => setSlide((slide + 2) % 3)}><ArrowLeft size={19} /></button><button aria-label="Next featured image" onClick={() => setSlide((slide + 1) % 3)}><ArrowRight size={19} /></button></div></div>
+  return <main className="rental-home">
+    <section className="home-lead home-lead-simple">
+      <div className="home-lead-copy">
+        <span className="home-kicker">HOLIDAYZONE / RESIDENTIAL RENTALS</span>
+        <h1>Find a place to call home.</h1>
+        <p>Search studios and apartments across the UAE. Your area, your budget, your next home.</p>
+
+      </div>
+      <figure className="home-lead-media">
+        <div className="home-lead-images">{slides.map((s,i)=><img key={s.image} src={s.image} alt={i===slide?s.caption:''} aria-hidden={i!==slide} className={i===slide?'visible':''} fetchPriority={i===0?'high':'auto'}/>)}</div>
+        <figcaption><span aria-live="polite">{slides[slide].caption}</span><div><span>{slide+1} / {slides.length}</span><button aria-label="Previous featured image" onClick={()=>setSlide((slide+2)%3)}><ArrowLeft size={18}/></button><button aria-label="Next featured image" onClick={()=>setSlide((slide+1)%3)}><ArrowRight size={18}/></button></div></figcaption>
+      </figure>
     </section>
-    <HomeSearch go={go} properties={properties} areas={areas} />
-    <section className="welcome-section"><span className="eyebrow">WELCOME TO BAYT & BRICK</span><h2>Great homes.<br className="mobile-break" /> Even better beginnings.</h2><p>A home is more than an address. It's where your everyday life happens. We bring together studios, one-bedroom and two-bedroom apartments across the UAE, with <strong>monthly and yearly rental options</strong> to suit your next chapter.</p><div className="welcome-promises"><span><Check /> Flexible rental periods</span><span><Check /> Clear property details</span><span><Check /> Personal viewing support</span></div><Link className="text-link" to="/about" go={go}>Discover our story <ArrowUpRight size={17} /></Link></section>
-    <section className="section featured-section"><SectionTitle eyebrow="FIND SOMEWHERE TO CALL YOUR OWN" title="Browse our properties" copy="A selection of spaces to help you picture your next move." to="/properties" go={go} link="View all properties" /><div className="property-grid">{properties.slice(0, 6).map(p => <Card key={p.id} p={p} go={go} saved={saved.includes(p.id)} toggleSave={toggleSave} />)}</div>{!properties.length && <div className="empty"><h3>New homes are on their way.</h3><p>Speak to our team about your preferred area and budget.</p><ButtonLink to="/contact" go={go}>Get in touch</ButtonLink></div>}</section>
-    <section className="section category-section"><SectionTitle eyebrow="YOUR SPACE. YOUR LIFESTYLE." title="Make room for what matters." copy="Just enough space, a little more privacy, or room for everyone." /><div className="category-grid">{categories.slice(0,3).map((c, i) => <Link key={c.slug} to={'/properties/' + c.slug} go={go} className="category-card"><img src={c.image} alt={c.label + ' apartment interior'} loading="lazy" /><div className="category-shade" /><span className="category-number">0{i + 1}</span><div className="category-copy"><div><span>{['A SPACE OF YOUR OWN', 'MORE ROOM TO UNWIND', 'BRING EVERYONE HOME'][i]}</span><h3>{c.label === 'Studio' ? 'Studio apartments' : c.label + ' apartments'}</h3></div><span className="category-arrow"><ArrowUpRight /></span></div></Link>)}</div></section>
-    <section className="section destination-areas"><SectionTitle eyebrow="DISCOVER YOUR NEIGHBOURHOOD" title="Where will life take you?" copy="From connected city communities to quieter residential corners. Find your fit." to="/areas" go={go} link="Explore all areas" /><div className="destination-area-grid">{areas.slice(0, 4).map((a, i) => <Link key={a.name} to={'/properties?area=' + encodeURIComponent(a.name)} go={go} className="destination-area-card"><div><img src={a.image} alt={'Residential living inspiration for ' + a.name} loading="lazy" /><span>{a.emirate}</span></div><small>0{i + 1} / EXPLORE THE AREA</small><h3>{a.name}<ArrowUpRight size={23} /></h3><p>{a.note}</p><span className="text-link">Discover homes <ArrowRight size={15} /></span></Link>)}</div><p className="sample-note">Neighbourhood images are lifestyle inspiration and may not show the named location.</p></section>
-    <section className="destination-story"><div><img src="/assets/muwaileh-neighbourhood.webp" alt="A residential neighbourhood in Sharjah" loading="lazy" /></div><div className="destination-story-copy"><span className="eyebrow">A MORE PERSONAL WAY TO RENT</span><h2>Local places.<br />A human connection.</h2><p>Finding your next home should feel exciting. Explore at your own pace, save your favourites and let us know when you're ready to look around.</p><p>Our team can help you take the next step, from your first question to arranging a viewing.</p><ButtonLink to="/contact" go={go}>Let's find your home</ButtonLink></div></section>
-    <Steps />
-    <section className="section rental-faq"><SectionTitle eyebrow="A FEW THINGS YOU MIGHT BE WONDERING" title="Before you make your move." /><div>{[['Can I rent monthly or yearly?', 'Yes. Use the monthly and yearly switch to browse prices for each rental period. Confirm the exact payment schedule and lease conditions with the team before booking.'], ['How do I arrange a viewing?', 'Open a property and complete the viewing request form, or visit Contact. Your request is saved for our team, who can follow up using the contact details you provide.'], ['Are the homes furnished?', 'You can browse both furnished and unfurnished homes. Each listing shows its furnishing status, and you can filter the results to match your preference.'], ['What should I confirm before moving in?', 'Ask the team about availability, the deposit, utilities, fees and the rental agreement. Sample listings are design previews and should be replaced with confirmed inventory before launch.']].map(([q, a]) => <details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
-    <CTA go={go} />
+
+    <section className="home-inventory home-section">
+      <div className="home-section-heading"><div><span className="home-kicker">PROPERTY CATALOGUE</span><h2>Explore rentals in the UAE</h2><p>Monthly and yearly rental options. Confirm availability with the team.</p></div><Link className="home-text-link" to="/properties" go={go}>All properties <ArrowUpRight size={18}/></Link></div>
+      <nav className="home-types" aria-label="Browse by property type">{categories.map(c=><Link key={c.slug} to={'/properties/'+c.slug} go={go}>{c.label}</Link>)}</nav>
+      {properties.length ? <div className="property-grid">{properties.slice(0,6).map(p=><Card key={p.id} p={p} go={go} saved={saved.includes(p.id)} toggleSave={toggleSave}/>)}</div> : <div className="home-empty"><h3>No homes listed at the moment.</h3><p>Contact us with your preferred neighbourhood and budget.</p><Link className="home-text-link" to="/contact" go={go}>Speak to our team <ArrowUpRight size={17}/></Link></div>}
+    </section>
+
+    <section className="home-viewing-guide home-section"><img src="/assets/one-bhk.webp" alt="Living room with space to relax" loading="lazy"/><div><span className="home-kicker">FROM SEARCH TO VIEWING</span><h2>See the details.<br/>Then see it in person.</h2><p>Compare rental prices, apartment sizes and furnishing before you visit. Save the homes that suit you and send the team your preferred viewing date.</p><ol><li>Choose an area and set your budget.</li><li>Review photos, prices and availability.</li><li>Request a viewing with the rental team.</li></ol><Link className="home-primary" to="/properties" go={go}>Browse apartments <ArrowUpRight size={18}/></Link></div></section><section className="renter-tools home-section" aria-label="Rental tools"><div><h2>Your rental search, all in one place.</h2><p>Keep a shortlist, compare the details and contact the team when you are ready.</p></div><div className="renter-tool-links"><Link to="/properties?saved=true" go={go}><span>Saved homes</span><p>Return to the properties you have saved.</p><ArrowUpRight size={22}/></Link><Link to="/properties" go={go}><span>Find your rental</span><p>Filter by price, furnishing and move-in date.</p><ArrowUpRight size={22}/></Link><Link to="/contact" go={go}><span>Arrange a viewing</span><p>Share a reference and speak to our team.</p><ArrowUpRight size={22}/></Link></div></section>
+
+    <section className="home-communities home-section">
+      <div className="home-community-intro"><span className="home-kicker">NEIGHBOURHOODS</span><h2>Start with<br/>the location.</h2><p>See where properties are listed, then narrow your search to the area that suits you.</p><Link className="home-text-link" to="/areas" go={go}>Explore all areas <ArrowUpRight size={18}/></Link><figure><img src="/assets/muwaileh-neighbourhood.webp" alt="Residential buildings and a neighbourhood street" loading="lazy"/><figcaption>Residential setting. Individual listing locations vary.</figcaption></figure></div>
+      <div className="home-community-list">{areas.map(a=>{const count=properties.filter(p=>p.area===a.name).length;return <Link key={a.id||a.name} to={'/properties?area='+encodeURIComponent(a.name)} go={go}><span><small>{a.emirate}</small><h3>{a.name}</h3></span><span>{count?`${count} ${count===1?'listing':'listings'}`:'No current listings'}<ArrowUpRight size={19}/></span></Link>})}{!areas.length&&<p>Contact us about your preferred area.</p>}</div>
+    </section>
+
+    <section className="home-help home-section"><div><span className="home-kicker">RENTAL QUESTIONS</span><h2>Before you book<br/>a viewing.</h2><p>A few details to help you plan your search.</p></div><div>{[
+      ['How do I arrange a viewing?', 'Open the property and send a viewing request, or contact us with its reference number. The team will confirm the arrangements.'],
+      ['Can I compare monthly and yearly prices?', 'Yes. Use the rental period selector to see the listed price for each period. Confirm the payment schedule and agreement for the home you choose.'],
+      ['Are utilities and deposits included?', 'These depend on the property. Ask the team to confirm the deposit, utilities and any additional fees before committing.'],
+      ['How does the move-in date filter work?', 'It shows homes with a listed availability date on or before your chosen date. Homes without a confirmed date are excluded from date-filtered results.'],
+    ].map(([q,a])=><details key={q}><summary>{q}<span>+</span></summary><p>{a}</p></details>)}</div></section>
+
+    <section className="home-enquiry"><div><span className="home-kicker">SPEAK TO HOLIDAYZONE</span><h2>Have a home in mind?</h2><p>Send us the reference, your budget and your planned move-in date.</p></div><Link className="home-primary" to="/contact" go={go}>Arrange a viewing <ArrowUpRight size={19}/></Link></section>
   </main>
 }

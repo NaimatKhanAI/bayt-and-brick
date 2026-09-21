@@ -139,4 +139,4 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': contentType, 'Content-Length': data.length, ...(contentType.startsWith('video/') ? { 'Accept-Ranges': 'bytes' } : {}) }); res.end(data)
   } catch (error) { json(res, error.status || 400, { error: error.status ? error.message : 'Unable to complete the request. Check your input and try again.' }) }
 })
-server.listen(Number(process.env.PORT || 3001), process.env.HOST || '127.0.0.1', () => console.log('Bayt & Brick running at http://localhost:' + server.address().port))
+server.listen(Number(process.env.PORT || 3001), process.env.HOST || '127.0.0.1', () => console.log('Holidayzone running at http://localhost:' + server.address().port))

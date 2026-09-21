@@ -1,6 +1,6 @@
-﻿# Bayt & Brick â€” UAE rentals
+﻿# Holidayzone â€” UAE rentals
 
-Responsive React website with Home, About, Neighbourhoods, Contact, Studio, 1 BHK, 2 BHK, property detail pages and an authenticated admin dashboard. The visual design combines a full-width property-image slider and gold buttons inspired by haus & haus Holidays with the white space, clear typography and teal accents of Dubai South. Original Bayt & Brick content and existing apartment imagery are retained. Subtle card depth respects reduced-motion preferences.
+Responsive React website with Home, About, Neighbourhoods, Contact, Studio, 1 BHK, 2 BHK, property detail pages and an authenticated admin dashboard. The visual design combines a full-width property-image slider and gold buttons inspired by haus & haus Holidays with the white space, clear typography and teal accents of Dubai South. Original Holidayzone content and existing apartment imagery are retained. Subtle card depth respects reduced-motion preferences.
 
 The active landing page is `src/Landing.jsx`; `src/reference-theme.css` styles all pages over the shared base in `src/design.css`. Property navigation includes category and monthly/yearly links. The homepage includes a functional three-image slider, area/type/rental-period search and expandable rental FAQs.
 
@@ -59,3 +59,9 @@ Set **Available from** in the property editor. The homepage and catalogue **Move
 Deploy the updated frontend and backend together and restart the Node.js app. Back up and persist `.local/database.json`, `.local/admin.json` and `uploads/` on the hosting server: team accounts, roles and activity now live alongside property data. No private `.local` files should be committed to Git. Existing database files migrate automatically; keep using one server process with this JSON storage implementation.
 
 `npm test` includes access-control, audit persistence and availability tests in addition to the existing API checks. `npm run build` builds the client. With Microsoft Edge installed, `node qa/access-ui.mjs` runs isolated browser checks after a build; it creates only temporary test accounts and data.
+
+## Holidayzone marketplace design
+
+Public branding is Holidayzone, including the header/footer, About, admin heading, document titles and H favicon. The rental marketplace presentation in `src/marketplace.css` is inspired by the prominent search, rental inventory and renter tools on https://www.apartments.com/. Existing UAE inventory, rental periods, Studio/1?8 BHK types, furnishing/budget/date filters, saved homes, enquiries and admin workflows are retained. Call/WhatsApp remain on the left and the property assistant stays on the right.
+
+Existing session cookie names, saved-home storage keys and property references are intentionally retained for compatibility. Deploy the updated frontend build and source together; no credentials or private runtime files should be committed.

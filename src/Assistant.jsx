@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MessageCircle, X, Send, ArrowUpRight } from 'lucide-react'
+import { MessageCircle, Phone, X, Send, ArrowUpRight } from 'lucide-react'
 import { answerQuestion } from './assistantLogic'
 import { money } from './shared'
 import './assistant.css'
@@ -21,6 +21,10 @@ export default function Assistant({ properties, areas, go }) {
       <form onSubmit={e => { e.preventDefault(); send(input) }}><input ref={field} aria-label="Message property assistant" placeholder="Area, budget or a question?" value={input} maxLength={500} onChange={e => setInput(e.target.value)}/><button type="submit" disabled={!input.trim()} aria-label="Send message"><Send size={19}/></button></form>
       <p className="assistant-disclosure">Automated search help ? English & simple Roman Urdu</p>
     </section>}
-    <button ref={trigger} className="assistant-launcher" aria-expanded={open} onClick={() => open ? close() : setOpen(true)}><MessageCircle size={21}/><span>Ask assistant</span></button>
+    <div className="contact-action-dock" role="group" aria-label="Contact Holidayzone">
+      <a className="quick-contact quick-contact-call" href="tel:+971543592223" aria-label="Call 0543592223" title="Call 0543592223"><Phone size={19}/><span>Call</span></a>
+      <a className="quick-contact quick-contact-whatsapp" href="https://wa.me/971509794499" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp 0509794499 (opens in a new tab)" title="WhatsApp 0509794499"><MessageCircle size={19}/><span>WhatsApp</span></a>
+    </div>
+    <button ref={trigger} className="assistant-launcher" aria-label="Ask assistant" aria-expanded={open} onClick={() => open ? close() : setOpen(true)}><MessageCircle size={21}/><span>Ask assistant</span></button>
   </div>
 }
