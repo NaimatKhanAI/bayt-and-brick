@@ -1,0 +1,17 @@
+.language-selector{max-width:120px;min-width:90px;padding:9px 7px;border:1px solid #d6dfd2;border-radius:5px;background:white;color:#28643b;font:inherit;font-size:13px;margin-inline-start:auto;margin-inline-end:20px;flex-shrink:0}
+html[lang=ur] body,html[lang=ar] body{font-family:Tahoma,Arial,sans-serif}
+html[lang=ml] body{font-family:'Nirmala UI','Kartika',Arial,sans-serif}
+html:not([lang=en]) h1,html:not([lang=en]) h2,html:not([lang=en]) h3,html:not([lang=en]) button,html:not([lang=en]) input,html:not([lang=en]) select,html:not([lang=en]) textarea{font-family:inherit;letter-spacing:normal}
+html[dir=rtl] .eyebrow,html[dir=rtl] .home-kicker,html[dir=rtl] .about-business-label{letter-spacing:normal}
+html[dir=rtl] .inquiry-form,html[dir=rtl] .card-body,html[dir=rtl] .result-body,html[dir=rtl] .market-sidebar button,html[dir=rtl] .home-community-list,html[dir=rtl] .rental-footer{text-align:right}
+html[dir=rtl] .brand{direction:ltr}html[dir=rtl] .brand small{letter-spacing:0}
+html[dir=rtl] input[type=tel],html[dir=rtl] input[type=date],html[dir=rtl] input[type=number],html[dir=rtl] a[href^='tel:'],html[dir=rtl] a[href^='https://wa.me']{direction:ltr;unicode-bidi:plaintext}
+html[dir=rtl] .nav-property-dropdown{left:auto;right:0}
+html[dir=rtl] .home-viewing-guide ol{padding-left:0;padding-right:22px}
+html[dir=rtl] .contact-action-dock{direction:ltr}html[dir=rtl] .rental-assistant{direction:rtl}
+html:not([lang=en]) .site-header nav{gap:12px}html:not([lang=en]) .site-header nav>a{white-space:normal}
+html:not([lang=en]) .home-lead h1{line-height:1.5}html:not([lang=en]) .home-lead-copy p{line-height:1.9}
+html:not([lang=en]) .card-contact{flex-wrap:wrap}html:not([lang=en]) .result-actions .btn{white-space:normal}
+@media(max-width:1150px){.language-selector{margin-inline-end:10px;min-width:75px;max-width:100px}.header-inner{gap:8px}html:not([lang=en]) .site-header nav{gap:8px}}
+@media(max-width:850px){.language-selector{margin-inline-start:auto;margin-inline-end:8px}.mobile-menu{margin-left:0!important}.header-inner .brand{flex-shrink:0}}
+@media(max-width:550px){.language-selector{font-size:12px;min-width:76px;max-width:100px}.header-inner{padding-inline:12px!important;gap:5px}.header-inner .brand{font-size:23px!important}.header-inner .brand-mark{width:24px}.header-inner .brand small{font-size:5px}}
