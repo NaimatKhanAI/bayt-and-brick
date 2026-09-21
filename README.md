@@ -65,3 +65,5 @@ Deploy the updated frontend and backend together and restart the Node.js app. Ba
 Public branding is Holidayzone, including the header/footer, About, admin heading, document titles and H favicon. The rental marketplace presentation in `src/marketplace.css` is inspired by the prominent search, rental inventory and renter tools on https://www.apartments.com/. Existing UAE inventory, rental periods, Studio/1?8 BHK types, furnishing/budget/date filters, saved homes, enquiries and admin workflows are retained. Call/WhatsApp remain on the left and the property assistant stays on the right.
 
 Existing session cookie names, saved-home storage keys and property references are intentionally retained for compatibility. Deploy the updated frontend build and source together; no credentials or private runtime files should be committed.
+
+Viewing enquiries are saved to the admin dashboard first, then open a pre-filled WhatsApp message to +971509794499. The customer must tap Send in WhatsApp; delivery is not automatic. A fallback Open WhatsApp link is shown if the browser blocks the new tab. Both general and property enquiries use this flow.
