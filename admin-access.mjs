@@ -8,9 +8,11 @@ export function accessControl(db, owner, sessions, save) {
   db.users ||= []
   db.roles ||= [
     { id: 'editor', name: 'Property editor', permissions: ['properties.create','properties.edit'] },
-    { id: 'manager', name: 'Property manager', permissions: ['properties.create','properties.edit','properties.delete','areas.manage','enquiries.view','audit.view'] },
+    { id: 'manager', name: 'Property manager', permissions: ['properties.create','properties.edit','media.delete','areas.manage','enquiries.view','audit.view'] },
     { id: 'viewer', name: 'Viewer', permissions: [] },
   ]
+  // Deletion and visibility are owner-only, including existing custom roles.
+  db.roles.forEach(role => { role.permissions = [...new Set(role.permissions.map(permission => permission === 'properties.delete' ? 'media.delete' : permission))] })
   db.activity ||= []
   function resolve(userId) {
     if (userId === 'owner') return { id: 'owner', username: owner.username || 'admin', name: 'Administrator', roleId: 'owner', roleName: 'Super admin', active: true, permissions: Object.keys(permissions) }

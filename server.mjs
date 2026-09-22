@@ -50,7 +50,7 @@ const server = http.createServer(async (req, res) => {
     if (p.startsWith('/api/') && !['GET', 'HEAD'].includes(method) && req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) return json(res, 403, { error: 'Request origin is not allowed.' })
     const token = (req.headers.cookie || '').match(/(?:^|;\s*)bb_session=([^;]+)/)?.[1], session = sessions.get(token), actor = session && session.expires > Date.now() ? access.resolve(session.userId) : null, authorized = Boolean(actor)
     if (p === '/api/areas' && method === 'GET') return json(res, 200, db.areas)
-    if (p === '/api/properties' && method === 'GET') return json(res, 200, db.properties)
+    if (p === '/api/properties' && method === 'GET') return json(res, 200, db.properties.filter(property => !property.hidden))
     if (p === '/api/session' && method === 'GET') return json(res, 200, { authenticated: Boolean(authorized), user: actor })
     if (p === '/api/login' && method === 'POST') {
       rate(req, 'login', 10); const data = await parse(req), user = access.login(data.username, data.password)
@@ -70,6 +70,17 @@ const server = http.createServer(async (req, res) => {
       if (/^\/api\/(users|roles|activity)(\/|$)/.test(p)) {
         const result = await access.handle(p, method, method === 'POST' ? await parse(req) : {}, actor)
         if (result) return json(res, ...result)
+      }
+      if (p === '/api/admin/properties' && method === 'GET') return json(res, 200, db.properties)
+      if (/^\/api\/properties\/[^/]+\/visibility$/.test(p) && method === 'POST') {
+        if (actor.id !== 'owner') return json(res,403,{error:'Only the super admin can hide or unhide properties.'})
+        const d = await parse(req), previous = db.properties.find(item => item.id === p.split('/')[3])
+        if (!previous) return json(res,404,{error:'Property not found.'})
+        if (typeof d.hidden !== 'boolean') return json(res,400,{error:'Choose a valid visibility setting.'})
+        const item = {...previous, hidden:d.hidden, updatedAt:new Date().toISOString()}
+        db.properties = db.properties.map(property => property.id === item.id ? item : property)
+        access.record(actor,d.hidden?'hide':'unhide','property',item.id,item.name,previous,item)
+        await save(); return json(res,200,item)
       }
       if (p === '/api/areas' && method === 'POST') {
         access.requirePermission(actor, 'areas.manage')
@@ -103,6 +114,8 @@ const server = http.createServer(async (req, res) => {
         const previous = d.id ? db.properties.find(x => x.id === d.id) : null
         access.requirePermission(actor, d.id ? 'properties.edit' : 'properties.create')
         if (d.id && !previous) return json(res,404,{error:'Property not found.'})
+        if (d.hidden !== undefined && (typeof d.hidden !== 'boolean' || (actor.id !== 'owner' && d.hidden !== Boolean(previous?.hidden)))) return json(res,403,{error:'Only the super admin can change property visibility.'})
+        if (['showCallButton','showWhatsappButton'].some(key => d[key] !== undefined && typeof d[key] !== 'boolean')) return json(res,400,{error:'Contact button settings must be true or false.'})
         if (d.availableFrom && !validDate(d.availableFrom)) return json(res,400,{error:'Enter a valid availability date.'})
         if (d.bathrooms !== undefined && (!Number.isInteger(Number(d.bathrooms)) || Number(d.bathrooms) < 1 || Number(d.bathrooms) > 20)) return json(res,400,{error:'Bathrooms must be between 1 and 20.'})
         if (!clean(d.name) || !categories.some(c => c.slug === d.slug) || !clean(d.area) || !(Number(d.price) > 0) || !(Number(d.yearlyPrice) > 0) || !Array.isArray(d.images) || !d.images.length || !d.images.every(mediaOK) || (d.video && !mediaOK(d.video))) return json(res, 400, { error: 'Add a title, home type, area, both rental prices and at least one photo.' })
@@ -110,17 +123,17 @@ const server = http.createServer(async (req, res) => {
         for (const media of [...d.images, d.video].filter(v => v && v.startsWith('/uploads/'))) { try { await fs.access(path.join(uploads, path.basename(media))) } catch { return json(res, 400, { error: 'One of your uploaded files is missing. Please upload it again.' }) } }
         if (!db.areas.some(a => a.name === clean(d.area))) return json(res, 400, { error: 'Select an existing area or add it in the Areas tab first.' })
         const id = db.properties.find(x => x.id === d.id)?.id || randomBytes(8).toString('hex')
-        const item = { id, name: clean(d.name), slug: d.slug, category: categories.find(c => c.slug === d.slug).label, availableFrom: d.availableFrom || '', bathrooms: Number(d.bathrooms || previous?.bathrooms || (d.slug === '2-bhk' ? 2 : 1)), area: clean(d.area), location: clean(d.location), price: Number(d.price), yearlyPrice: Number(d.yearlyPrice), size: clean(d.size), furnished: Boolean(d.furnished), description: clean(d.description, 5000), images: d.images.slice(0, 30), image: d.images[0], video: d.video || '', available: 'Enquire for availability', reference: previous?.reference || 'BB-' + id.slice(-6).toUpperCase(), demo: false, createdAt: previous?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() }
+        const item = { id, hidden: actor.id === 'owner' && typeof d.hidden === 'boolean' ? d.hidden : Boolean(previous?.hidden), showCallButton: d.showCallButton ?? previous?.showCallButton ?? true, showWhatsappButton: d.showWhatsappButton ?? previous?.showWhatsappButton ?? true, name: clean(d.name), slug: d.slug, category: categories.find(c => c.slug === d.slug).label, availableFrom: d.availableFrom || '', bathrooms: Number(d.bathrooms || previous?.bathrooms || (d.slug === '2-bhk' ? 2 : 1)), area: clean(d.area), location: clean(d.location), price: Number(d.price), yearlyPrice: Number(d.yearlyPrice), size: clean(d.size), furnished: Boolean(d.furnished), description: clean(d.description, 5000), images: d.images.slice(0, 30), image: d.images[0], video: d.video || '', available: 'Enquire for availability', reference: previous?.reference || 'BB-' + id.slice(-6).toUpperCase(), demo: false, createdAt: previous?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() }
         db.properties = [item, ...db.properties.filter(x => x.id !== id)]; access.record(actor,previous?'update':'create','property',id,item.name,previous,item); await save(); return json(res, 200, item)
       }
       if (p.startsWith('/api/properties/') && method === 'DELETE') {
-        access.requirePermission(actor,'properties.delete')
+        if (actor.id !== 'owner') return json(res,403,{error:'Only the super admin can delete properties.'})
         const previous = db.properties.find(x => x.id === p.split('/').pop())
         if (!previous) return json(res,404,{error:'Property not found.'})
         db.properties = db.properties.filter(x => x.id !== previous.id)
         access.record(actor,'delete','property',previous.id,previous.name,previous); await save(); return json(res,200,{ok:true})
       }
-      if (p === '/api/media' && method === 'DELETE') { access.requirePermission(actor,'properties.delete'); const { url: media } = await parse(req); if (!mediaOK(media) || !media.startsWith('/uploads/')) return json(res, 400, { error: 'Only uploaded media can be deleted.' }); if (db.properties.some(x => x.images.includes(media) || x.video === media)) return json(res, 409, { error: 'Remove this media from its property and save first.' }); await fs.rm(path.join(uploads, path.basename(media)), { force: true }); access.record(actor,'delete','media',media,media); await save(); return json(res, 200, { ok: true }) }
+      if (p === '/api/media' && method === 'DELETE') { access.requirePermission(actor,'media.delete'); const { url: media } = await parse(req); if (!mediaOK(media) || !media.startsWith('/uploads/')) return json(res, 400, { error: 'Only uploaded media can be deleted.' }); if (db.properties.some(x => x.images.includes(media) || x.video === media)) return json(res, 409, { error: 'Remove this media from its property and save first.' }); await fs.rm(path.join(uploads, path.basename(media)), { force: true }); access.record(actor,'delete','media',media,media); await save(); return json(res, 200, { ok: true }) }
       return json(res, 404, { error: 'Not found.' })
     }
     const base = p.startsWith('/uploads/') ? uploads : path.join(root, 'dist'), relative = p.startsWith('/uploads/') ? p.slice(9) : p.slice(1)

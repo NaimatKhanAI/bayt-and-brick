@@ -67,3 +67,13 @@ Public branding is Holidayzone, including the header/footer, About, admin headin
 Existing session cookie names, saved-home storage keys and property references are intentionally retained for compatibility. Deploy the updated frontend build and source together; no credentials or private runtime files should be committed.
 
 Viewing enquiries are saved to the admin dashboard first, then open a pre-filled WhatsApp message to +971509794499. The customer must tap Send in WhatsApp; delivery is not automatic. A fallback Open WhatsApp link is shown if the browser blocks the new tab. Both general and property enquiries use this flow.
+
+## Languages and property publishing
+
+Public pages support English, Urdu, Arabic and Malayalam through the header language selector. The choice is saved in this browser; Urdu/Arabic use RTL. Listing titles/descriptions entered by staff remain as authored. The staff dashboard stays in English.
+
+In Admin > Properties > Edit, use Show Call button and Show WhatsApp button to control the contact links for each property. These settings also exist on newly created properties; both are enabled by default. The fixed contact buttons are unchanged.
+
+Only the original super admin account (owner) can hide/unhide or delete properties. These powers cannot be assigned through custom roles. Hide keeps the record and media for later reuse; the property is excluded from the public API and public detail pages. Admin lists include hidden properties. Ordinary property edits preserve the existing visibility. Visibility and contact changes are recorded in the activity log. Existing roles retain unused-media deletion where previously allowed, separately from property deletion.
+
+Validation: `npm test`, `node qa/languages-ui.mjs`, and `node qa/publishing-ui.mjs` (run `npm run build` first for browser checks). Browser checks use isolated temporary data and Microsoft Edge.

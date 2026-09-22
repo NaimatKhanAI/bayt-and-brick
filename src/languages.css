@@ -12,6 +12,10 @@ html[dir=rtl] .contact-action-dock{direction:ltr}html[dir=rtl] .rental-assistant
 html:not([lang=en]) .site-header nav{gap:12px}html:not([lang=en]) .site-header nav>a{white-space:normal}
 html:not([lang=en]) .home-lead h1{line-height:1.5}html:not([lang=en]) .home-lead-copy p{line-height:1.9}
 html:not([lang=en]) .card-contact{flex-wrap:wrap}html:not([lang=en]) .result-actions .btn{white-space:normal}
+html:not([lang=en]) .furnishing-tabs button{min-width:0;overflow-wrap:anywhere;padding-inline:8px}
+html:not([lang=en]) .market-sort label{min-width:0}html:not([lang=en]) .market-sort select{min-width:0;max-width:160px}
 @media(max-width:1150px){.language-selector{margin-inline-end:10px;min-width:75px;max-width:100px}.header-inner{gap:8px}html:not([lang=en]) .site-header nav{gap:8px}}
 @media(max-width:850px){.language-selector{margin-inline-start:auto;margin-inline-end:8px}.mobile-menu{margin-left:0!important}.header-inner .brand{flex-shrink:0}}
 @media(max-width:550px){.language-selector{font-size:12px;min-width:76px;max-width:100px}.header-inner{padding-inline:12px!important;gap:5px}.header-inner .brand{font-size:23px!important}.header-inner .brand-mark{width:24px}.header-inner .brand small{font-size:5px}}
+
+html[lang=ml] body{overflow-wrap:anywhere}html[lang=ml] .about-business-body{grid-template-columns:minmax(0,1.65fr) minmax(270px,1fr)}@media(max-width:700px){html[lang=ml] .about-business-body{grid-template-columns:minmax(0,1fr)}}
