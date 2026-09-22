@@ -77,3 +77,5 @@ In Admin > Properties > Edit, use Show Call button and Show WhatsApp button to c
 Only the original super admin account (owner) can hide/unhide or delete properties. These powers cannot be assigned through custom roles. Hide keeps the record and media for later reuse; the property is excluded from the public API and public detail pages. Admin lists include hidden properties. Ordinary property edits preserve the existing visibility. Visibility and contact changes are recorded in the activity log. Existing roles retain unused-media deletion where previously allowed, separately from property deletion.
 
 Validation: `npm test`, `node qa/languages-ui.mjs`, and `node qa/publishing-ui.mjs` (run `npm run build` first for browser checks). Browser checks use isolated temporary data and Microsoft Edge.
+
+The property editor uses one Monthly/Yearly rental-period dropdown and shows only its matching rent field. Saving selects that rental period for the property; only that price is required and public searches respect it. Existing records with both prices remain compatible until edited. Validate with `node qa/rental-period-ui.mjs` after building.

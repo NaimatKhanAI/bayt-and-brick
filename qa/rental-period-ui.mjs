@@ -1,0 +1,70 @@
+import { chromium } from 'playwright'
+import { spawn } from 'node:child_process'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import os from 'node:os'
+import assert from 'node:assert/strict'
+const root = process.cwd(), tmp = await fs.mkdtemp(path.join(os.tmpdir(),'bb-ui-test-'))
+let child, browser, page
+try {
+  await fs.cp(path.join(root,'dist'),path.join(tmp,'dist'),{recursive:true})
+  child = spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:tmp,env:{...process.env,PORT:'0',HOST:'127.0.0.1',ADMIN_USERNAME:'qa-owner',ADMIN_PASSWORD:'QaOwnerPassword!42',NODE_ENV:'test'},stdio:['ignore','pipe','pipe']})
+  const origin = await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Server timeout')),10000);child.stdout.once('data',data=>{clearTimeout(timer);resolve(data.toString().trim().match(/http:\/\/[^ ]+/)[0].replace('localhost','127.0.0.1'))});child.once('error',reject)})
+  browser = await chromium.launch({channel:'msedge',headless:true})
+  page = await browser.newPage({viewport:{width:1440,height:1000}}); const errors=[]
+  page.setDefaultTimeout(20000)
+  page.on('pageerror',error=>{errors.push(error.message);console.log('Page error:',error.message)})
+
+  await page.route('https://**/*',route=>route.abort())
+  await page.goto(origin+'/admin')
+  await page.getByLabel('Username',{exact:true}).fill('qa-owner')
+  await page.getByLabel('Password',{exact:true}).fill('QaOwnerPassword!42')
+  await page.getByRole('button',{name:'Sign in securely'}).click()
+  const row=page.locator('.admin-row').filter({hasText:'Furnished studio near University City'})
+  await row.getByRole('button',{name:'Edit',exact:true}).click()
+  await page.getByRole('combobox',{name:'Rental period',exact:true}).selectOption('yearly')
+  assert.equal(await page.getByLabel('Monthly rent (AED)',{exact:true}).count(),0)
+  await page.getByLabel('Yearly rent (AED)',{exact:true}).fill('45000')
+  await page.getByRole('combobox',{name:'Rental period',exact:true}).selectOption('monthly')
+  assert.equal(await page.getByLabel('Yearly rent (AED)',{exact:true}).count(),0)
+  await page.getByLabel('Monthly rent (AED)',{exact:true}).fill('5000')
+  await page.getByRole('combobox',{name:'Rental period',exact:true}).selectOption('yearly')
+  assert.equal(await page.getByLabel('Yearly rent (AED)',{exact:true}).inputValue(),'45000')
+  await page.getByRole('button',{name:'Save property',exact:true}).click()
+  await page.getByText('Property saved.',{exact:true}).waitFor()
+  let data=await (await page.request.get(origin+'/api/properties')).json()
+  const saved=data.find(p=>p.id==='studio-1')
+  assert.equal(saved.rentalPeriod,'yearly');assert.equal(saved.price,null);assert.equal(saved.yearlyPrice,45000)
+  const result=await page.request.post(origin+'/api/properties',{data:{...saved,id:undefined,name:'Monthly only test',rentalPeriod:'monthly',price:3000,yearlyPrice:undefined}})
+  assert.equal(result.status(),200)
+  const monthly=await result.json();assert.equal(monthly.yearlyPrice,null)
+  assert.equal((await page.request.post(origin+'/api/properties',{data:{...monthly,id:undefined,price:0}})).status(),400)
+  await page.goto(origin+'/')
+  await page.locator('.property-card').first().waitFor()
+  const card=page.locator('.property-card').filter({hasText:saved.name})
+  assert((await card.innerText()).includes('45,000'));assert((await card.innerText()).includes('year'))
+  await page.goto(origin+'/property/studio-1?period=monthly')
+  await page.locator('.booking-price').waitFor()
+  assert((await page.locator('.booking-price').innerText()).includes('45,000'))
+  assert.equal(await page.locator('.booking-card .period').count(),0)
+  await page.goto(origin+'/properties?period=monthly')
+  await page.locator('.rental-result').first().waitFor()
+  assert.equal(await page.locator('.rental-result').filter({hasText:saved.name}).count(),0)
+  assert.equal(await page.locator('.rental-result').filter({hasText:'Monthly only test'}).count(),1)
+  await page.goto(origin+'/properties?period=yearly')
+  await page.locator('.rental-result').first().waitFor()
+  assert.equal(await page.locator('.rental-result').filter({hasText:saved.name}).count(),1)
+  assert.equal(await page.locator('.rental-result').filter({hasText:'Monthly only test'}).count(),0)
+  await page.goto(origin+'/admin')
+  await row.getByRole('button',{name:'Edit',exact:true}).click()
+  assert.equal(await page.getByRole('combobox',{name:'Rental period',exact:true}).inputValue(),'yearly')
+  assert.equal(await page.getByLabel('Monthly rent (AED)',{exact:true}).count(),0)
+  await page.setViewportSize({width:375,height:1000})
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+  console.log('Single rent field, draft switching, saved duration, selected-only validation, home/detail pricing and catalogue period filters passed')
+  assert.deepEqual(errors,[])
+} catch(error) { console.error('Browser failure URL:',page?.url()); if(page){console.error((await page.locator('body').innerText()).slice(0,3000));await page.screenshot({path:'qa/access-failure.png'})}; throw error } finally {
+  await browser?.close()
+  if(child?.exitCode===null){const done=new Promise(resolve=>child.once('exit',resolve));child.kill();await done}
+  assert(tmp.startsWith(path.join(os.tmpdir(),'bb-ui-test-')));await fs.rm(tmp,{recursive:true,force:true})
+}

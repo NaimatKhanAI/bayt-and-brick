@@ -1,3 +1,4 @@
+import { supportsPeriod } from './rentalPeriod'
 import PropertyContact from './PropertyContact'
 import { useLanguage } from './i18n'
 import { availableBy, isValidDate } from './availability'
@@ -17,7 +18,7 @@ export default function Properties({ go, properties, areas, route, saved, toggle
   function search(e) { e?.preventDefault(); if(invalid)return; const params=new URLSearchParams(); Object.entries(filters).forEach(([k,v])=>{if(v!==''&&v!==false)params.set(k==='furnishing'?'furnished':k,String(v))}); go('/properties?'+params) }
   const shown = properties.filter(p=>{
     const price=filters.period==='yearly'?p.yearlyPrice:p.price, size=parseFloat(String(p.size).replaceAll(',',''))
-    return availableBy(p,filters.moveIn)&&(!filters.area||p.area===filters.area)&&(!filters.type||p.slug===filters.type)&&(!filters.min||price>=+filters.min)&&(!filters.max||price<=+filters.max)&&(!filters.furnishing||String(p.furnished)===filters.furnishing)&&(!filters.sizeMin||size>=+filters.sizeMin)&&(!filters.sizeMax||size<=+filters.sizeMax)&&(!filters.keyword||`${p.name} ${p.location} ${p.reference} ${p.description}`.toLowerCase().includes(filters.keyword.toLowerCase()))&&(!filters.video||p.video)&&(!filters.saved||saved.includes(p.id))
+    return supportsPeriod(p,filters.period)&&availableBy(p,filters.moveIn)&&(!filters.area||p.area===filters.area)&&(!filters.type||p.slug===filters.type)&&(!filters.min||price>=+filters.min)&&(!filters.max||price<=+filters.max)&&(!filters.furnishing||String(p.furnished)===filters.furnishing)&&(!filters.sizeMin||size>=+filters.sizeMin)&&(!filters.sizeMax||size<=+filters.sizeMax)&&(!filters.keyword||`${p.name} ${p.location} ${p.reference} ${p.description}`.toLowerCase().includes(filters.keyword.toLowerCase()))&&(!filters.video||p.video)&&(!filters.saved||saved.includes(p.id))
   }).sort((a,b)=>{const price=p=>filters.period==='yearly'?p.yearlyPrice:p.price;return filters.sort==='low'?price(a)-price(b):filters.sort==='high'?price(b)-price(a):filters.sort==='size'?parseFloat(String(b.size).replaceAll(',',''))-parseFloat(String(a.size).replaceAll(',','')):0})
   const chips = [['moveIn',filters.moveIn&&'Move in by '+filters.moveIn],['area',filters.area],['type',categories.find(c=>c.slug===filters.type)?.label],['furnishing',filters.furnishing === 'true' ? 'Furnished' : filters.furnishing === 'false' ? 'Unfurnished' : ''],['min',filters.min&&'From AED '+money(filters.min)],['max',filters.max&&'Up to AED '+money(filters.max)],['sizeMin',filters.sizeMin&&'From '+filters.sizeMin+' sq ft'],['sizeMax',filters.sizeMax&&'Up to '+filters.sizeMax+' sq ft'],['keyword',filters.keyword],['video',filters.video&&'Video tour'],['saved',filters.saved&&'Saved homes']].filter(([,v])=>v)
   return <main className="rental-market">
