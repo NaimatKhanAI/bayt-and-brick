@@ -112,5 +112,29 @@ test('roles enforce API access, deactivation revokes sessions, audit preserves c
     assert((await call('/activity')).data.some(e=>e.entityId===propertyId&&e.action==='delete'))
     assert.equal((await call('/users')).data.find(u=>u.id===userId).active,false)
     assert.equal((await call('/roles')).data.roles.find(r=>r.id===roleId).name,'Add only')
+    await stop(); await start()
+    ownerCookie = (await call('/login','POST',{username:'owner',password},'')).cookie
+    // Limits include hidden listings, reject concurrent excess posts, and cannot be spoofed.
+    const limited = {name:'Limited uploader',username:'limited.test',password,roleId:'editor',active:true,propertyLimit:1}
+    const limitedUser = (await call('/users','POST',limited)).data
+    let limitedCookie = (await call('/login','POST',{username:limited.username,password},'')).cookie
+    const contactProperty = {...property,contactPhone:'+971 50 123 4567',contactWhatsapp:'+971551234567',createdBy:'owner'}
+    assert.equal((await call('/properties','POST',{...contactProperty,contactPhone:'javascript:bad'},limitedCookie)).status,400)
+    const simultaneous = await Promise.all([call('/properties','POST',contactProperty,limitedCookie),call('/properties','POST',contactProperty,limitedCookie)])
+    assert.deepEqual(simultaneous.map(r=>r.status).sort(),[200,403])
+    const owned = simultaneous.find(r=>r.status===200).data
+    assert.equal(owned.createdBy,limitedUser.id); assert.equal(owned.contactPhone,'+971501234567')
+    assert.equal((await call('/properties','POST',{...owned,createdBy:'owner',name:'Contact update'},limitedCookie)).data.createdBy,limitedUser.id)
+    await call('/properties/'+owned.id+'/visibility','POST',{hidden:true})
+    assert.equal((await call('/properties','POST',contactProperty,limitedCookie)).status,403)
+    assert.equal((await call('/users')).data.find(u=>u.id===limitedUser.id).propertyCount,1)
+    assert.equal((await call('/users','POST',{...limited,id:limitedUser.id,propertyLimit:-1})).status,400)
+    await call('/users','POST',{...limited,id:limitedUser.id,propertyLimit:2})
+    limitedCookie = (await call('/login','POST',{username:limited.username,password},'')).cookie
+    assert.equal((await call('/properties','POST',contactProperty,limitedCookie)).status,200)
+    await call('/users','POST',{...limited,id:limitedUser.id,propertyLimit:0})
+    limitedCookie = (await call('/login','POST',{username:limited.username,password},'')).cookie
+    assert.equal((await call('/properties','POST',contactProperty,limitedCookie)).status,403)
+    assert.equal((await call('/properties','POST',{...owned,hidden:true},limitedCookie)).status,200)
   } finally { await stop(); assert(tmp.startsWith(path.join(os.tmpdir(),'bb-access-test-'))); await fs.rm(tmp,{recursive:true,force:true}) }
 })

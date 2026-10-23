@@ -14,6 +14,13 @@ export function accessControl(db, owner, sessions, save) {
   // Deletion and visibility are owner-only, including existing custom roles.
   db.roles.forEach(role => { role.permissions = [...new Set(role.permissions.map(permission => permission === 'properties.delete' ? 'media.delete' : permission))] })
   db.activity ||= []
+  // Recover existing upload ownership from the original creation audit entry.
+  for (const property of db.properties) {
+    if (property.createdBy) continue
+    const creation = db.activity.find(e => e.entity === 'property' && e.entityId === property.id && e.action === 'create')
+    property.createdBy = creation?.actorId || 'owner'
+    property.createdByName = db.users.find(u => u.id === property.createdBy)?.name || (creation?.actorId !== 'owner' && creation?.actor) || 'Administrator'
+  }
   function resolve(userId) {
     if (userId === 'owner') return { id: 'owner', username: owner.username || 'admin', name: 'Administrator', roleId: 'owner', roleName: 'Super admin', active: true, permissions: Object.keys(permissions) }
     const user = db.users.find(u => u.id === userId && u.active)
@@ -33,7 +40,8 @@ export function accessControl(db, owner, sessions, save) {
     return resolve(account.id)
   }
   async function handle(p, method, data, actor) {
-    if (p === '/api/users' && method === 'GET') { requirePermission(actor,'users.manage'); return [200, [resolve('owner'), ...db.users.map(publicUser)]] }
+    if (/^\/api\/(users|roles)(\/|$)/.test(p) && method !== 'GET' && actor.id !== 'owner') fail('Only the super admin can change staff accounts or permissions.',403)
+    if (p === '/api/users' && method === 'GET') { requirePermission(actor,'users.manage'); return [200, [resolve('owner'), ...db.users.map(u => ({ ...publicUser(u), propertyCount: db.properties.filter(p => p.createdBy === u.id).length }))]] }
     if (p === '/api/roles' && method === 'GET') { if (!actor.permissions.some(p => ['users.manage','roles.manage'].includes(p))) fail('Your role does not allow this action.',403); return [200, { roles: db.roles, permissions }] }
     if (p === '/api/activity' && method === 'GET') { requirePermission(actor,'audit.view'); return [200, db.activity] }
     if (p === '/api/users' && method === 'POST') {
@@ -45,7 +53,9 @@ export function accessControl(db, owner, sessions, save) {
       if (!/^[a-zA-Z0-9_.@-]{3,80}$/.test(username) || !name || !db.roles.some(r => r.id === data.roleId)) fail('Enter a name, valid username and existing role.')
       if (username.toLowerCase() === (owner.username || 'admin').toLowerCase() || db.users.some(u => u.id !== data.id && u.username.toLowerCase() === username.toLowerCase())) fail('This username already exists.',409)
       if ((!before || data.password) && (typeof data.password !== 'string' || data.password.length < 8 || data.password.length > 200)) fail('Use a password between 8 and 200 characters.')
-      const user = { ...(before || {}), id: before?.id || id(), username, name, roleId: data.roleId, active: data.active !== false, created: before?.created || new Date().toISOString(), ...(!before || data.password ? passwordHash(data.password) : {}) }
+      const propertyLimit = data.propertyLimit === undefined ? (before?.propertyLimit ?? null) : data.propertyLimit === '' || data.propertyLimit === null ? null : Number(data.propertyLimit)
+      if (propertyLimit !== null && (!Number.isSafeInteger(propertyLimit) || propertyLimit < 0)) fail('Property limit must be a whole number of zero or more.')
+      const user = { ...(before || {}), propertyLimit, id: before?.id || id(), username, name, roleId: data.roleId, active: data.active !== false, created: before?.created || new Date().toISOString(), ...(!before || data.password ? passwordHash(data.password) : {}) }
       db.users = [user, ...db.users.filter(u => u.id !== user.id)]
       invalidate(user.id)
       record(actor, before ? 'update' : 'create', 'user', user.id, username, before && publicUser(before), publicUser(user))

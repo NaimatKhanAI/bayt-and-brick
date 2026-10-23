@@ -4,6 +4,7 @@ export const permissions = {
   'media.delete': 'Delete unused uploaded media',
   'areas.manage': 'Add and delete neighbourhoods',
   'enquiries.view': 'Read viewing enquiries',
+  'requests.manage': 'Update assigned inquiries and viewing requests',
   'users.manage': 'Create, edit and deactivate users',
   'roles.manage': 'Create and edit permission roles',
   'audit.view': 'View activity and change history',

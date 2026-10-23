@@ -4,20 +4,22 @@ import path from 'node:path'
 import { randomBytes, scryptSync } from 'node:crypto'
 import { initialAreas } from './src/areas.js'
 import { accessControl } from './admin-access.mjs'
+import { mobileApi } from './mobile-api.mjs'
 import { categories, allListings } from './src/data.js'
 
 const root = process.cwd(), local = path.join(root, '.local'), uploads = path.join(root, 'uploads')
 await fs.mkdir(local, { recursive: true }); await fs.mkdir(uploads, { recursive: true })
 const dbPath = path.join(local, 'database.json'), authPath = path.join(local, 'admin.json')
 let db
-try { db = JSON.parse(await fs.readFile(dbPath, 'utf8')) } catch { db = { properties: allListings.map(p => ({ ...p, yearlyPrice: p.price * 12, description: 'A thoughtfully arranged home with comfortable living spaces and room for everyday life.', demo: true })), enquiries: [] }; await fs.writeFile(dbPath, JSON.stringify(db)) }
+try { db = JSON.parse(await fs.readFile(dbPath, 'utf8')) } catch (error) { if(error.code !== 'ENOENT') throw error; db = { properties: process.env.NODE_ENV === 'production' ? [] : allListings.map(p => ({ ...p, yearlyPrice: p.price * 12, description: 'A thoughtfully arranged home with comfortable living spaces and room for everyday life.', demo: true })), enquiries: [] }; await fs.writeFile(dbPath, JSON.stringify(db)) }
 if (!Array.isArray(db.areas)) {
   db.areas = initialAreas.map((a, i) => ({ ...a, id: 'area-' + i }))
   for (const p of db.properties) if (!db.areas.some(a => a.name === p.area)) db.areas.push({ id: randomBytes(8).toString('hex'), name: p.area, emirate: p.location.split(',').pop().trim(), image: p.image, note: '' })
   await fs.writeFile(dbPath, JSON.stringify(db))
 }
 let admin
-try { admin = JSON.parse(await fs.readFile(authPath, 'utf8')) } catch {
+try { admin = JSON.parse(await fs.readFile(authPath, 'utf8')) } catch (error) {
+  if(error.code !== 'ENOENT') throw error
   const password = process.env.ADMIN_PASSWORD || randomBytes(18).toString('base64url'), salt = randomBytes(16).toString('hex')
   admin = { username: process.env.ADMIN_USERNAME || 'admin', salt, hash: scryptSync(password, salt, 64).toString('hex') }
   await fs.writeFile(authPath, JSON.stringify(admin), { mode: 0o600 })
@@ -32,7 +34,7 @@ if (process.env.ADMIN_PASSWORD) {
 }
 const sessions = new Map(), limits = new Map()
 let queue = Promise.resolve()
-const save = () => { const snapshot = JSON.stringify(db, null, 2); queue = queue.then(async () => { await fs.writeFile(dbPath + '.tmp', snapshot); await fs.rename(dbPath + '.tmp', dbPath) }); return queue }
+const save = () => { const snapshot = JSON.stringify(db, null, 2); const write = queue.catch(()=>{}).then(async () => { await fs.writeFile(dbPath + '.tmp', snapshot); await fs.rename(dbPath + '.tmp', dbPath) }); queue=write; return write }
 const access = accessControl(db, admin, sessions, save)
 await save()
 const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value
@@ -43,12 +45,16 @@ function rate(req, key, max) { const k = req.socket.remoteAddress + key, now = D
 const clean = (v, max = 500) => typeof v === 'string' ? v.trim().slice(0, max) : ''
 const mediaOK = v => typeof v === 'string' && /^\/(assets|uploads)\/[a-zA-Z0-9_.-]+$/.test(v)
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.mp4': 'video/mp4', '.webm': 'video/webm', '.ico': 'image/x-icon' }
+const mobile = mobileApi({ db, sessions, access, save, parse, rate })
+await save()
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   try {
     const url = new URL(req.url, 'http://localhost'), p = url.pathname, method = req.method
     if (p.startsWith('/api/') && !['GET', 'HEAD'].includes(method) && req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) return json(res, 403, { error: 'Request origin is not allowed.' })
-    const token = (req.headers.cookie || '').match(/(?:^|;\s*)bb_session=([^;]+)/)?.[1], session = sessions.get(token), actor = session && session.expires > Date.now() ? access.resolve(session.userId) : null, authorized = Boolean(actor)
+    const token = req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1] || (req.headers.cookie || '').match(/(?:^|;\s*)bb_session=([^;]+)/)?.[1], session = sessions.get(token), actor = session && session.expires > Date.now() ? access.resolve(session.userId) : null, authorized = Boolean(actor)
+    const mobileResult = await mobile.handle(req, url, actor, token)
+    if (mobileResult) return json(res, ...mobileResult)
     if (p === '/api/areas' && method === 'GET') return json(res, 200, db.areas)
     if (p === '/api/properties' && method === 'GET') return json(res, 200, db.properties.filter(property => !property.hidden))
     if (p === '/api/session' && method === 'GET') return json(res, 200, { authenticated: Boolean(authorized), user: actor })
@@ -71,7 +77,10 @@ const server = http.createServer(async (req, res) => {
         const result = await access.handle(p, method, method === 'POST' ? await parse(req) : {}, actor)
         if (result) return json(res, ...result)
       }
-      if (p === '/api/admin/properties' && method === 'GET') return json(res, 200, db.properties)
+      if (p === '/api/admin/properties' && method === 'GET') {
+        if (!actor.permissions.some(p => ['properties.create','properties.edit'].includes(p)) && actor.id !== 'owner') return json(res,403,{error:'Your role does not allow this action.'})
+        return json(res, 200, db.properties.filter(p => actor.id === 'owner' || p.createdBy === actor.id))
+      }
       if (/^\/api\/properties\/[^/]+\/visibility$/.test(p) && method === 'POST') {
         if (actor.id !== 'owner') return json(res,403,{error:'Only the super admin can hide or unhide properties.'})
         const d = await parse(req), previous = db.properties.find(item => item.id === p.split('/')[3])
@@ -97,7 +106,7 @@ const server = http.createServer(async (req, res) => {
         if (db.properties.some(p => p.area === area.name)) return json(res, 409, { error: 'Move or remove the properties in this area before deleting it.' })
         db.areas = db.areas.filter(a => a.id !== area.id); access.record(actor,'delete','area',area.id,area.name,area); await save(); return json(res, 200, { ok: true })
       }
-      if (p === '/api/enquiries' && method === 'GET') { access.requirePermission(actor,'enquiries.view'); return json(res, 200, db.enquiries) }
+      if (p === '/api/enquiries' && method === 'GET') { access.requirePermission(actor,'enquiries.view'); return json(res, 200, db.enquiries.filter(r=>actor.id==='owner'||r.assignedTo===actor.id||db.properties.some(p=>p.id===r.property&&p.createdBy===actor.id))) }
       if (p === '/api/upload' && method === 'POST') {
         if (!actor.permissions.includes('properties.create')) access.requirePermission(actor,'properties.edit')
         const b = await body(req, 50 * 1024 * 1024); let ext
@@ -111,10 +120,16 @@ const server = http.createServer(async (req, res) => {
       }
       if (p === '/api/properties' && method === 'POST') {
         const d = await parse(req)
+        const requestKey = req.headers['idempotency-key']
+        if(requestKey && (typeof requestKey!=='string'||!/^[-\w]{16,100}$/.test(requestKey))) return json(res,400,{error:'Invalid request key.'})
         const previous = d.id ? db.properties.find(x => x.id === d.id) : null
         access.requirePermission(actor, d.id ? 'properties.edit' : 'properties.create')
+        const priorRequest=requestKey&&db.propertyRequests.find(r=>r.key===requestKey&&r.actorId===actor.id)
+        if(priorRequest) {const item=db.properties.find(p=>p.id===priorRequest.propertyId);return item?json(res,200,item):json(res,409,{error:'This property was removed after your request.'})}
         if (d.id && !previous) return json(res,404,{error:'Property not found.'})
-        if (d.hidden !== undefined && (typeof d.hidden !== 'boolean' || (actor.id !== 'owner' && d.hidden !== Boolean(previous?.hidden)))) return json(res,403,{error:'Only the super admin can change property visibility.'})
+        if (previous && actor.id !== 'owner' && previous.createdBy !== actor.id) return json(res,403,{error:'You can only edit properties assigned to you.'})
+        if (d.expectedUpdatedAt && previous?.updatedAt !== d.expectedUpdatedAt) return json(res,409,{error:'This property changed. Reload it before saving.'})
+        if (d.hidden !== undefined && (typeof d.hidden !== 'boolean' || (actor.id !== 'owner' && previous && d.hidden !== Boolean(previous.hidden)))) return json(res,403,{error:'Only the super admin can change property visibility.'})
         if (['showCallButton','showWhatsappButton'].some(key => d[key] !== undefined && typeof d[key] !== 'boolean')) return json(res,400,{error:'Contact button settings must be true or false.'})
         const rentalPeriod = d.rentalPeriod ?? previous?.rentalPeriod ?? 'both'
         if (!['monthly','yearly','both'].includes(rentalPeriod)) return json(res,400,{error:'Select monthly or yearly rent.'})
@@ -125,10 +140,21 @@ const server = http.createServer(async (req, res) => {
         if (!clean(d.name) || !categories.some(c => c.slug === d.slug) || !clean(d.area) || !Array.isArray(d.images) || !d.images.length || !d.images.every(mediaOK) || (d.video && !mediaOK(d.video))) return json(res, 400, { error: 'Add a title, home type, area, the selected rental price and at least one photo.' })
         if (!clean(d.location) || !d.images.every(v => /\.(jpg|jpeg|png|webp)$/i.test(v)) || (d.video && !/\.(mp4|webm)$/i.test(d.video))) return json(res, 400, { error: 'Use valid prices, a location, image photos and a supported video file.' })
         for (const media of [...d.images, d.video].filter(v => v && v.startsWith('/uploads/'))) { try { await fs.access(path.join(uploads, path.basename(media))) } catch { return json(res, 400, { error: 'One of your uploaded files is missing. Please upload it again.' }) } }
+        const completed=requestKey&&db.propertyRequests.find(r=>r.key===requestKey&&r.actorId===actor.id)
+        if(completed) return json(res,200,db.properties.find(p=>p.id===completed.propertyId))
+        if(previous && db.properties.find(p=>p.id===previous.id)!==previous) return json(res,409,{error:'This property changed during your save. Reload it and try again.'})
         if (!db.areas.some(a => a.name === clean(d.area))) return json(res, 400, { error: 'Select an existing area or add it in the Areas tab first.' })
+        // Check immediately before mutation, after all asynchronous validation.
+        if (!previous && actor.id !== 'owner' && actor.propertyLimit != null && db.properties.filter(p => p.createdBy === actor.id).length >= actor.propertyLimit) return json(res,403,{error:'Your property limit has been reached. Contact the administrator to increase it.'})
+        const contacts = {}
+        for (const key of ['contactPhone','contactWhatsapp']) {
+          const value = String(d[key] ?? previous?.[key] ?? '').trim().replace(/[\s()-]/g,'')
+          if (value && !/^\+[1-9]\d{6,14}$/.test(value)) return json(res,400,{error:'Enter contact numbers with country code, for example +971501234567.'})
+          contacts[key] = value
+        }
         const id = db.properties.find(x => x.id === d.id)?.id || randomBytes(8).toString('hex')
-        const item = { id, hidden: actor.id === 'owner' && typeof d.hidden === 'boolean' ? d.hidden : Boolean(previous?.hidden), showCallButton: d.showCallButton ?? previous?.showCallButton ?? true, showWhatsappButton: d.showWhatsappButton ?? previous?.showWhatsappButton ?? true, name: clean(d.name), slug: d.slug, category: categories.find(c => c.slug === d.slug).label, availableFrom: d.availableFrom || '', bathrooms: Number(d.bathrooms || previous?.bathrooms || (d.slug === '2-bhk' ? 2 : 1)), area: clean(d.area), location: clean(d.location), rentalPeriod, price: monthlyRequired ? Number(d.price) : null, yearlyPrice: yearlyRequired ? Number(d.yearlyPrice) : null, size: clean(d.size), furnished: Boolean(d.furnished), description: clean(d.description, 5000), images: d.images.slice(0, 30), image: d.images[0], video: d.video || '', available: 'Enquire for availability', reference: previous?.reference || 'BB-' + id.slice(-6).toUpperCase(), demo: false, createdAt: previous?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() }
-        db.properties = [item, ...db.properties.filter(x => x.id !== id)]; access.record(actor,previous?'update':'create','property',id,item.name,previous,item); await save(); return json(res, 200, item)
+        const item = { id, ...contacts, createdBy: previous ? (previous.createdBy || 'owner') : actor.id, createdByName: previous ? (previous.createdByName || 'Administrator') : actor.name, hidden: !previous && actor.id !== 'owner' ? true : actor.id === 'owner' && typeof d.hidden === 'boolean' ? d.hidden : Boolean(previous?.hidden), showCallButton: d.showCallButton ?? previous?.showCallButton ?? true, showWhatsappButton: d.showWhatsappButton ?? previous?.showWhatsappButton ?? true, name: clean(d.name), slug: d.slug, category: categories.find(c => c.slug === d.slug).label, availableFrom: d.availableFrom || '', bathrooms: Number(d.bathrooms || previous?.bathrooms || (d.slug === '2-bhk' ? 2 : 1)), area: clean(d.area), location: clean(d.location), rentalPeriod, price: monthlyRequired ? Number(d.price) : null, yearlyPrice: yearlyRequired ? Number(d.yearlyPrice) : null, size: clean(d.size), furnished: Boolean(d.furnished), description: clean(d.description, 5000), images: d.images.slice(0, 30), image: d.images[0], video: d.video || '', available: 'Enquire for availability', reference: previous?.reference || 'BB-' + id.slice(-6).toUpperCase(), demo: false, createdAt: previous?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() }
+        db.properties = [item, ...db.properties.filter(x => x.id !== id)]; if(requestKey)db.propertyRequests.push({key:requestKey,actorId:actor.id,propertyId:id,at:Date.now()}); access.record(actor,previous?'update':'create','property',id,item.name,previous,item); await save(); return json(res, 200, item)
       }
       if (p.startsWith('/api/properties/') && method === 'DELETE') {
         if (actor.id !== 'owner') return json(res,403,{error:'Only the super admin can delete properties.'})
